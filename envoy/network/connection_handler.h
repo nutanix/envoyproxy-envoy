@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "envoy/network/reverse_connection_handler.h"
+#include "envoy/network/reverse_connection_manager.h"
 #include "envoy/common/random_generator.h"
 #include "envoy/network/address.h"
 #include "envoy/network/connection.h"
@@ -18,6 +20,26 @@
 
 namespace Envoy {
 namespace Network {
+
+// The thread local registry.
+class LocalRevConnRegistry {
+public:
+  virtual ~LocalRevConnRegistry() = default;
+
+  virtual Network::ReverseConnectionManager& getRCManager() PURE;
+  virtual Network::ReverseConnectionHandler& getRCHandler() PURE;
+};
+
+// The central reverse conn registry interface providing the thread local accessor.
+class RevConnRegistry {
+public:
+  virtual ~RevConnRegistry() = default;
+
+  /**
+   * @return The thread local registry.
+   */
+  virtual LocalRevConnRegistry* getLocalRegistry() PURE;
+};
 
 // This interface allows for a listener to perform an alternative behavior when a
 // packet can't be routed correctly during draining; for example QUIC packets that
@@ -126,6 +148,20 @@ public:
    * @return the stat prefix used for per-handler stats.
    */
   virtual const std::string& statPrefix() const PURE;
+
+  virtual void saveUpstreamConnection(Network::ConnectionSocketPtr&& upstream_socket,
+                                      uint64_t listener_tag) PURE;
+  
+  /**
+   * Enable reverse connection entities on the current worker.
+   * @param reverse_conn_registry the thread local registry that holds the reverse connection
+   * entities.
+   */
+  virtual void enableReverseConnections(Network::RevConnRegistry& reverse_conn_registry) PURE;
+  /**
+   * @return the thread local registry.
+   */
+  virtual Network::LocalRevConnRegistry& reverseConnRegistry() const PURE;
 
   /**
    * Used by ConnectionHandler to manage listeners.

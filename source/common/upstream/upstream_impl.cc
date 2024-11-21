@@ -1017,6 +1017,13 @@ LegacyLbPolicyConfigHelper::getTypedLbConfigFromLegacyProtoWithoutSubset(
     lb_factory = Config::Utility::getFactoryByName<TypedLoadBalancerFactory>(
         "envoy.load_balancing_policies.cluster_provided");
     break;
+  // case ClusterProto::REVERSE_CONNECTION_LB:
+  //   lb_factory = Config::Utility::getFactoryByName<TypedLoadBalancerFactory>(
+  //       "envoy.load_balancing_policies.cluster_provided");
+  //   // 'REVERSE_CONNECTION_LB' should be handled by the 'configureLbPolicies'
+  //   // function and should not reach here.
+  //   PANIC("getTypedLbConfigFromLegacyProtoWithoutSubset: should not reach here");
+  //   break;
   case ClusterProto::LOAD_BALANCING_POLICY_CONFIG:
     // 'LOAD_BALANCING_POLICY_CONFIG' should be handled by the 'configureLbPolicies'
     // function and should not reach here.

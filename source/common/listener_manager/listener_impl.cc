@@ -6,6 +6,7 @@
 #include "envoy/config/listener/v3/listener.pb.h"
 #include "envoy/config/listener/v3/listener_components.pb.h"
 #include "envoy/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.pb.h"
+#include "envoy/extensions/reverse_connection/reverse_connection_listener_config/v3/reverse_connection_listener_config.pb.h"
 #include "envoy/extensions/udp_packet_writer/v3/udp_default_writer_factory.pb.h"
 #include "envoy/network/exception.h"
 #include "envoy/registry/registry.h"
@@ -21,6 +22,7 @@
 #include "source/common/listener_manager/active_raw_udp_listener_config.h"
 #include "source/common/listener_manager/filter_chain_manager_impl.h"
 #include "source/common/listener_manager/listener_manager_impl.h"
+#include "source/extensions/reverse_connection/reverse_connection_listener_config_impl.h"
 #include "source/common/network/connection_balancer_impl.h"
 #include "source/common/network/resolver_impl.h"
 #include "source/common/network/socket_option_factory.h"
@@ -223,6 +225,9 @@ std::string listenerStatsScope(const envoy::config::listener::v3::Listener& conf
   if (config.has_internal_listener()) {
     return absl::StrCat("envoy_internal_", config.name());
   }
+  if (config.has_reverse_connection_listener_config()) {
+    return absl::StrCat("reverse_connection_listener_", config.name());
+  }
   auto address_or_error = Network::Address::resolveProtoAddress(config.address());
   THROW_IF_STATUS_NOT_OK(address_or_error, throw);
   return address_or_error.value()->asString();
@@ -369,6 +374,7 @@ ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
     buildOriginalDstListenerFilter(config);
     buildProxyProtocolListenerFilter(config);
     buildInternalListener(config);
+    buildReverseConnectionListener(config);
   }
   if (!workers_started_) {
     // Initialize dynamic_init_manager_ from Server's init manager if it's not initialized.
@@ -436,6 +442,7 @@ ListenerImpl::ListenerImpl(ListenerImpl& origin,
   validateFilterChains(config);
   buildFilterChains(config);
   buildInternalListener(config);
+  buildReverseConnectionListener(config);
   if (socket_type_ == Network::Socket::Type::Stream) {
     // Apply the options below only for TCP.
     buildSocketOptions(config);
@@ -539,6 +546,66 @@ void ListenerImpl::buildInternalListener(const envoy::config::listener::v3::List
                                      "field instead of address for internal listeners",
                                      name_));
   }
+}
+
+void ListenerImpl::buildReverseConnectionListener(const envoy::config::listener::v3::Listener& config) {
+
+  ENVOY_LOG(debug, "Listener: {}; Reverse conn metadata : {}", config.name(),
+            config.reverse_connection_listener_config().DebugString());
+
+  if (!config.has_reverse_connection_listener_config()) {
+    ENVOY_LOG(debug,
+              "Reverse connection listener config is not present. Listener {} will bind to port",
+              config.name());
+    return;
+  }
+
+  // Reverse connection listener should not bind to port.
+  bind_to_port_ = false;
+
+  ENVOY_LOG(debug, "Building reverse connection config for listener: {} tag: {}", config.name(),
+            listener_tag_);
+  envoy::extensions::reverse_connection::reverse_connection_listener_config::v3::
+      ReverseConnectionListenerConfig reverse_conn_config;
+  bool success = config.reverse_connection_listener_config().UnpackTo(&reverse_conn_config);
+
+  if (!success) {
+    throw EnvoyException(fmt::format(
+        "Failed to unpack reverse connection listener config for listener: {}", config.name()));
+  }
+
+  if (reverse_conn_config.src_node_id().empty()) {
+    ENVOY_LOG(error,
+              "Reverse connection listener config is missing source node ID. Skipping "
+              "reverse connection listener creation for listener: {} ",
+              config.name());
+    return;
+  } else if (reverse_conn_config.remote_cluster_to_conn_count().empty()) {
+    ENVOY_LOG(error,
+              "Reverse connection listener config is missing cluster list. Skipping "
+              "reverse connection listener creation for listener: {} ",
+              config.name());
+    return;
+  }
+  Network::ReverseConnectionListenerConfig::ReverseConnParamsPtr rc_params =
+      std::make_unique<Network::ReverseConnectionListenerConfig::ReverseConnParams>(
+          Network::ReverseConnectionListenerConfig::ReverseConnParams{
+              reverse_conn_config.src_node_id(),              // src_node_id_
+              reverse_conn_config.src_cluster_id(),           // src_cluster_id_
+              reverse_conn_config.src_tenant_id(),            // src_tenant_id_
+              absl::flat_hash_map<std::string, uint32_t>()}); // remote_cluster_to_conn_count_map_
+  ENVOY_LOG(debug, "src_node_id_: {} src_cluster_id_: {} src_tenant_id_: {}",
+            rc_params->src_node_id_, rc_params->src_cluster_id_, rc_params->src_tenant_id_);
+  for (const auto& remote_cluster_conn_pair : reverse_conn_config.remote_cluster_to_conn_count()) {
+    ENVOY_LOG(debug, "Remote cluster: {}, conn count: {}", remote_cluster_conn_pair.cluster_name(),
+              remote_cluster_conn_pair.reverse_connection_count().value());
+    rc_params->remote_cluster_to_conn_count_map_.emplace(
+        remote_cluster_conn_pair.cluster_name(),
+        remote_cluster_conn_pair.reverse_connection_count().value());
+  }
+  reverse_connection_listener_config_ =
+      std::make_unique<Extensions::ReverseConnection::ReverseConnectionListenerConfigImpl>(
+          std::move(rc_params));
 }
 
 bool ListenerImpl::buildUdpListenerWorkerRouter(const Network::Address::Instance& address,

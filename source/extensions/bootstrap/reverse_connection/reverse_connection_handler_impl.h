@@ -24,7 +24,7 @@ class ReverseConnectionHandlerImpl : public Network::ReverseConnectionHandler,
 public:
   ReverseConnectionHandlerImpl(Event::Dispatcher* dispatcher);
   void addConnectionSocket(const std::string& node_id, const std::string& cluster_id,
-                           Network::ConnectionSocketPtr&& socket, bool expects_proxy_protocol,
+                           Network::ConnectionSocketPtr socket, bool expects_proxy_protocol,
                            const std::chrono::seconds& ping_interval, bool rebalanced) override;
   void post(const std::string& node_id, const std::string& cluster_id,
             Network::ConnectionSocketPtr socket, bool expects_proxy_protocol,

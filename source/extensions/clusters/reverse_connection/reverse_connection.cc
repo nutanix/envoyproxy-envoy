@@ -112,18 +112,19 @@ void RevConCluster::cleanup() {
 
 absl::string_view RevConCluster::getHostIdValue(const Http::RequestHeaderMap* request_headers) {
   for (const auto& header_name : http_header_names_) {
+    ENVOY_LOG(debug, "Searching for {} header in request context", header_name->get());
     Http::HeaderMap::GetResult header_result = request_headers->get(*header_name);
     if (header_result.empty()) {
       continue;
     }
-
+    ENVOY_LOG(trace, "Found {} header in request context value {}", header_name->get(), header_result[0]->key().getStringView());
     // This is an implicitly untrusted header, so per the API documentation only the first
     // value is used.
     if (header_result[0]->value().empty()) {
       ENVOY_LOG(trace, "Found empty value for header {}", header_result[0]->key().getStringView());
       continue;
     }
-
+    ENVOY_LOG(debug, "header_result value: {} ", header_result[0]->value().getStringView());
     return header_result[0]->value().getStringView();
   }
 

@@ -107,13 +107,12 @@ Http::FilterDataStatus ReverseConnFilter::acceptReverseConnection() {
     }
   }
 
-  ENVOY_STREAM_LOG(
-      info, "Received accept reverse connection request. tenant '{}', cluster '{}', node '{}'",
-      *decoder_callbacks_, tenant_uuid, cluster_uuid, node_uuid);
-
   Network::Connection* connection =
       &const_cast<Network::Connection&>(*decoder_callbacks_->connection());
   Envoy::Ssl::ConnectionInfoConstSharedPtr ssl = connection->ssl();
+  ENVOY_STREAM_LOG(
+      info, "Received accept reverse connection request. tenant '{}', cluster '{}', node '{}' FD: {}",
+      *decoder_callbacks_, tenant_uuid, cluster_uuid, node_uuid, connection->getSocket()->ioHandle().fdDoNotUse());
 
   if ((ssl != nullptr) && (ssl->peerCertificatePresented())) {
     absl::Span<const std::string> dnsSans = ssl->dnsSansPeerCertificate();
@@ -140,10 +139,8 @@ Http::FilterDataStatus ReverseConnFilter::acceptReverseConnection() {
     decoder_callbacks_->sendLocalReply(Http::Code::OK, ret.SerializeAsString(), nullptr,
                                        absl::nullopt, "");
   }
-
   connection->setActiveConnectionReused(true);
   connection->close(Network::ConnectionCloseType::NoFlush, "accepted_reverse_conn");
-
   saveDownstreamConnection(*connection, node_uuid, cluster_uuid);
 
   return Http::FilterDataStatus::StopIterationNoBuffer;
@@ -303,7 +300,7 @@ void ReverseConnFilter::saveDownstreamConnection(Network::Connection& downstream
                    *decoder_callbacks_);
   const Network::ConnectionSocketPtr& downstream_socket = downstream_connection.getSocket();
   downstream_socket->ioHandle().resetFileEvents();
-  reverseConnectionHandler().addConnectionSocket(node_id, cluster_id, const_cast<Network::ConnectionSocketPtr&&>(downstream_socket),
+  reverseConnectionHandler().addConnectionSocket(node_id, cluster_id, downstream_socket,
                                                  expects_proxy_protocol_, config_->pingInterval(),
                                                  false /* rebalanced */);
 }

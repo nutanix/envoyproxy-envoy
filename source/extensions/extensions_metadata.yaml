@@ -70,11 +70,11 @@ envoy.bootstrap.internal_listener:
   - envoy.extensions.bootstrap.internal_listener.v3.InternalListener
 envoy.reverse_connection.reverse_connection_listener_config:
   categories:
-  - envoy.reverse_connection
+  - envoy.extensions.reverse_connection
   security_posture: unknown
   status: wip
   type_urls:
-  - envoy.extensions.bootstrap.reverse_connection.reverse_connection_listener_config.v3.ReverseConnectionListenerConfig
+  - envoy.extensions.reverse_connection.reverse_connection_listener_config.v3.ReverseConnectionListenerConfig
 envoy.bootstrap.reverse_connection:
   categories:
   - envoy.bootstrap
@@ -634,13 +634,6 @@ envoy.filters.listener.tls_inspector:
   status: stable
   type_urls:
   - envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
-envoy.filters.listener.reverse_connection:
-  categories:
-  - envoy.filters.listener
-  security_posture: requires_trusted_downstream_and_upstream
-  status: stable
-  type_urls:
-  - envoy.extensions.filters.listener.tls_inspector.v3.ReverseConnection
 envoy.filters.network.connection_limit:
   categories:
   - envoy.filters.network

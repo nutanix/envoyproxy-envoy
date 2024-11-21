@@ -72,3 +72,17 @@ envoy_cc_extension(
     ],
     alwayslink = 1,
 )
+
+envoy_cc_library(
+    name = "conn_pool_lib",
+    srcs = ["conn_pool.cc"],
+    hdrs = ["conn_pool.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//envoy/event:dispatcher_interface",
+        "//envoy/upstream:upstream_interface",
+        "//source/common/http:codec_client_lib",
+        "//source/common/network:connection_impl",
+        "//source/common/http/http2:conn_pool_lib",
+    ],
+)
