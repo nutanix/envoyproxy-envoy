@@ -97,6 +97,8 @@ public:
   MOCK_METHOD(void, setHealthChecker, (HealthCheckHostMonitorPtr && health_checker));
   MOCK_METHOD(const std::string&, hostnameForHealthChecks, (), (const));
   MOCK_METHOD(const std::string&, hostname, (), (const));
+  MOCK_METHOD(const absl::string_view, getHostId, (), (const));
+  MOCK_METHOD(void, setHostId, (const absl::string_view host_id));
   MOCK_METHOD(Network::UpstreamTransportSocketFactory&, transportSocketFactory, (), (const));
   MOCK_METHOD(HostStats&, stats, (), (const));
   MOCK_METHOD(LoadMetricStats&, loadMetricStats, (), (const));
@@ -177,6 +179,8 @@ public:
   MOCK_METHOD((std::vector<std::pair<absl::string_view, Stats::PrimitiveGaugeReference>>), gauges,
               (), (const));
   MOCK_METHOD(HealthCheckHostMonitor&, healthChecker, (), (const));
+  MOCK_METHOD(const absl::string_view, getHostId, (), (const));
+  MOCK_METHOD(void, setHostId, (const absl::string_view host_id));
   MOCK_METHOD(void, healthFlagClear, (HealthFlag flag));
   MOCK_METHOD(bool, healthFlagGet, (HealthFlag flag), (const));
   MOCK_METHOD(void, healthFlagSet, (HealthFlag flag));

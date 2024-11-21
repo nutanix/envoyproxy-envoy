@@ -487,6 +487,8 @@ public:
   MOCK_METHOD(FilterChainFactory&, filterChainFactory, ());
   MOCK_METHOD(std::vector<ListenSocketFactoryPtr>&, listenSocketFactories, ());
   MOCK_METHOD(bool, bindToPort, (), (const));
+  MOCK_METHOD(bool, initiateReverseConnections, ());
+  MOCK_METHOD(const std::string&, versionInfo, (), (const));
   MOCK_METHOD(bool, handOffRestoredDestinationConnections, (), (const));
   MOCK_METHOD(uint32_t, perConnectionBufferLimitBytes, (), (const));
   MOCK_METHOD(std::chrono::milliseconds, listenerFiltersTimeout, (), (const));
@@ -554,6 +556,7 @@ public:
   MOCK_METHOD(void, enableListeners, ());
   MOCK_METHOD(void, setListenerRejectFraction, (UnitFloat), (override));
   MOCK_METHOD(const std::string&, statPrefix, (), (const));
+  MOCK_METHOD(void, saveUpstreamConnection_,(Network::ConnectionSocketPtr & upstream_socket, uint64_t listener_tag));
 
   uint64_t num_handler_connections_{};
 };
