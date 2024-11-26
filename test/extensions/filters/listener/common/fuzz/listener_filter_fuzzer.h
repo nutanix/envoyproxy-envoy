@@ -61,6 +61,7 @@ public:
   uint64_t listenerTag() const override { return 1; }
   ResourceLimit& openConnections() override { return open_connections_; }
   const std::string& name() const override { return name_; }
+  const std::string& versionInfo() const override { PANIC("not implemented"); }
   Network::UdpListenerConfigOptRef udpListenerConfig() override { return {}; }
   Network::InternalListenerConfigOptRef internalListenerConfig() override { return {}; }
   const Network::ListenerInfoConstSharedPtr& listenerInfo() const override {

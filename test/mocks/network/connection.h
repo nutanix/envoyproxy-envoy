@@ -96,7 +96,11 @@ public:
               (uint64_t bandwidth_bits_per_sec, std::chrono::microseconds rtt), ());               \
   MOCK_METHOD(absl::optional<uint64_t>, congestionWindowInBytes, (), (const));                     \
   MOCK_METHOD(void, dumpState, (std::ostream&, int), (const));                                     \
-  MOCK_METHOD(ExecutionContext*, executionContext, (), (const));
+  MOCK_METHOD(ExecutionContext*, executionContext, (), (const));                                   \
+  MOCK_METHOD(const ConnectionSocketPtr&, getSocket, (), (const));                                 \
+  MOCK_METHOD(void, setConnectionReused, (bool));                                                  \
+  MOCK_METHOD(void, setActiveConnectionReused, (bool));                                            \
+  MOCK_METHOD(bool, isActiveConnectionReused, ())
 
 class MockConnection : public Connection, public MockConnectionBase {
 public:
