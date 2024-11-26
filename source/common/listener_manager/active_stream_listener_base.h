@@ -202,7 +202,7 @@ public:
    * Remove and destroy an active connection.
    * @param connection supplies the connection to remove.
    */
-  void removeConnection(ActiveTcpConnection& connection);
+  virtual void removeConnection(ActiveTcpConnection& connection);
 
 protected:
   /**
