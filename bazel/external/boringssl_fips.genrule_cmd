@@ -33,14 +33,18 @@ export HOME="$PWD"
 export PATH="/usr/bin:/bin"
 
 # Clang
-VERSION=12.0.0
-if [[ "$ARCH" == "x86_64" ]]; then
-  PLATFORM="x86_64-linux-gnu-ubuntu-20.04"
-  SHA256=a9ff205eb0b73ca7c86afc6432eed1c2d49133bd0d49e47b15be59bbf0dd292e
-else
-  PLATFORM="aarch64-linux-gnu"
-  SHA256=d05f0b04fb248ce1e7a61fcd2087e6be8bc4b06b2cc348792f383abf414dec48
-fi
+VERSION=14.0.0
+
+# Nutanix specific: Use Clang for CentOS.
+PLATFORM="x86_64-linux-sles12.4"
+SHA256=78f70cc94c3b6f562455b15cebb63e75571d50c3d488d53d9aa4cd9dded30627
+# if [[ "$ARCH" == "x86_64" ]]; then
+#   PLATFORM="x86_64-linux-gnu-ubuntu-18.04"
+#   SHA256=61582215dafafb7b576ea30cc136be92c877ba1f1c31ddbbd372d6d65622fef5
+# else
+#   PLATFORM="aarch64-linux-gnu"
+#   SHA256=1792badcd44066c79148ffeb1746058422cc9d838462be07e3cb19a4b724a1ee
+# fi
 
 curl -sLO https://github.com/llvm/llvm-project/releases/download/llvmorg-"$VERSION"/clang+llvm-"$VERSION"-"$PLATFORM".tar.xz
 echo "$SHA256" clang+llvm-"$VERSION"-"$PLATFORM".tar.xz | sha256sum --check
@@ -117,6 +121,10 @@ fi
 
 # Clean after previous build.
 rm -rf boringssl/build
+rm -rf boringssl/build_dynamic
+
+# Nutanix specific: Build BoringSSL static library when building the envoy-static release binary and
+# when other times when the flag dynamic_link_tests is not set.
 
 # Build BoringSSL.
 cd boringssl
@@ -124,12 +132,34 @@ cd boringssl
 # because the FIPS module itself is already built with -fPIC.
 mkdir build && cd build && cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=${HOME}/toolchain -DFIPS=1 -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC" ..
 ninja
+
+# The `HostMatching` test contains hard-coded expired certificates and always fails due to the expiration.
+# This should be removed during the next FIPS version upgrade, as the test code is fixed in later versions.
+export GTEST_FILTER="-SSLTest.HostMatching"
+
+# Nutanix specific: 'URandomTest' requires ptrace which is failing due to
+# PTRACE_TRACEME: Operation not permitted.
+export GTEST_FILTER="$GTEST_FILTER:URandomTest.Test"
 ninja run_tests
 ./crypto/crypto_test
 
 # Verify correctness of the FIPS build.
 if [[ `tool/bssl isfips` != "1" ]]; then
-  echo "ERROR: BoringSSL tool didn't report FIPS build."
+  echo "ERROR: BoringSSL tool didn't report FIPS static build."
+  exit 1
+fi
+
+
+# Nutanix specific: Build dynamic library to be linked when the build flag dynamic_link_tests is set.
+cd ..
+mkdir build_dynamic && cd build_dynamic && cmake -GNinja -DBUILD_SHARED_LIBS=1 -DCMAKE_TOOLCHAIN_FILE=${HOME}/toolchain -DFIPS=1 -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC" ..
+ninja
+ninja run_tests
+./crypto/crypto_test
+
+# Verify correctness of the FIPS build.
+if [[ `tool/bssl isfips` != "1" ]]; then
+  echo "ERROR: BoringSSL tool didn't report FIPS dynamic build."
   exit 1
 fi
 

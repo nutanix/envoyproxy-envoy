@@ -191,6 +191,7 @@ function bazel_binary_build() {
   local EXE_NAME="$4"
   local FINAL_DELIVERY_DIR="${ENVOY_DELIVERY_DIR}"/"${EXE_NAME}"
   mkdir -p "${FINAL_DELIVERY_DIR}"
+  echo "FINAL_DELIVERY_DIR=${FINAL_DELIVERY_DIR}"
 
   echo "Building (type=${BINARY_TYPE} target=${BUILD_TARGET} debug=${BUILD_DEBUG_INFORMATION} name=${EXE_NAME})..."
   ENVOY_BIN=$(echo "${BUILD_TARGET}" | sed -e 's#^@\([^/]*\)/#external/\1#;s#^//##;s#:#/#')
@@ -946,6 +947,36 @@ case $CI_TARGET in
         fi
         ;;
 
+    go_protos.api)
+        GO_IMPORT_BASE="github.com/envoyproxy/go-control-plane"
+        GO_TARGETS=(@envoy_api//...)
+        read -r -a GO_PROTOS <<< "$(bazel query "${BAZEL_GLOBAL_OPTIONS[@]}" "kind('go_proto_library', ${GO_TARGETS[*]})" | tr '\n' ' ')"
+        echo "${GO_PROTOS[@]}" | grep -q envoy_api || echo "No go proto targets found"
+        mkdir -p build_go
+        rm -rf build_go
+        bazel build "${BAZEL_BUILD_OPTIONS[@]}" \
+                --experimental_proto_descriptor_sets_include_source_info \
+                --remote_download_outputs=all \
+                "${GO_PROTOS[@]}"
+        echo "Copying go protos -> build_go"
+        BAZEL_BIN="$(bazel info "${BAZEL_BUILD_OPTIONS[@]}" bazel-bin)"
+        for GO_PROTO in "${GO_PROTOS[@]}"; do
+            # strip @envoy_api//
+            RULE_DIR="$(echo "${GO_PROTO:12}" | cut -d: -f1)"
+            PROTO="$(echo "${GO_PROTO:12}" | cut -d: -f2)"
+            INPUT_DIR="${BAZEL_BIN}/external/envoy_api/${RULE_DIR}/${PROTO}_/${GO_IMPORT_BASE}/${RULE_DIR}"
+            OUTPUT_DIR="build_go/${RULE_DIR}"
+            mkdir -p "$OUTPUT_DIR"
+            if [[ ! -e "$INPUT_DIR" ]]; then
+                echo "Unable to find input ${INPUT_DIR}" >&2
+                exit 1
+            fi
+            # echo "Copying go files ${INPUT_DIR} -> ${OUTPUT_DIR}"
+            while read -r GO_FILE; do
+                cp -a "$GO_FILE" "$OUTPUT_DIR"
+            done <<< "$(find "$INPUT_DIR" -name "*.go")"
+        done
+        ;;
     verify_distro)
         # this can be required if any python deps require compilation
         setup_clang_toolchain
