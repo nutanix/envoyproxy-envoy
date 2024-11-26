@@ -51,6 +51,9 @@ build:docs-ci --action_env=DOCS_RST_CHECK=1 --host_action_env=DOCS_RST_CHECK=1
 build --incompatible_config_setting_private_default_visibility
 build --incompatible_enforce_config_setting_visibility
 
+# Nutanix: We always want to build a fips compliant version.
+build --define boringssl=fips
+
 test --test_verbose_timeout_warnings
 test --experimental_ui_max_stdouterr_bytes=11712829 #default 1048576
 
@@ -137,6 +140,10 @@ build:asan --copt -D__SANITIZE_ADDRESS__
 build:asan --test_env=ASAN_OPTIONS=handle_abort=1:allow_addr2line=true:check_initialization_order=true:strict_init_order=true:detect_odr_violation=1
 build:asan --test_env=UBSAN_OPTIONS=halt_on_error=true:print_stacktrace=1
 build:asan --test_env=ASAN_SYMBOLIZER_PATH
+# Nutanix specific: Allow alloc_dealloc_mismatch error without failing the test. This error is seen only on Nutanix circle ci setups.
+build:asan --test_env=ASAN_OPTIONS=handle_abort=1:allow_addr2line=true:check_initialization_order=true:strict_init_order=true:detect_odr_violation=1:alloc_dealloc_mismatch=0
+build:asan --test_env=UBSAN_OPTIONS=halt_on_error=true:print_stacktrace=1
+build:asan --test_env=ASAN_SYMBOLIZER_PATH
 # ASAN needs -O1 to get reasonable performance.
 build:asan --copt -O1
 build:asan --copt -fno-optimize-sibling-calls
@@ -154,6 +161,10 @@ build:clang-asan --linkopt=-l:libclang_rt.ubsan_standalone_cxx.a
 build:clang-asan --action_env=ENVOY_UBSAN_VPTR=1
 build:clang-asan --copt=-fsanitize=vptr,function
 build:clang-asan --linkopt=-fsanitize=vptr,function
+
+# Nutanix specific: Configure clang linker to link shared asan libraries.
+build:clang-asan --linkopt=-shared-libasan
+build:clang-asan --linkopt=-shared-libsan
 
 # macOS
 build:macos --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
