@@ -85,7 +85,7 @@ public:
   virtual absl::optional<uint64_t> congestionWindowInBytes() const PURE;
 };
 
-using ConnectionSocketPtr = std::unique_ptr<ConnectionSocket>;
+using ConnectionSocketPtr = std::shared_ptr<ConnectionSocket>;
 
 } // namespace Network
 } // namespace Envoy
