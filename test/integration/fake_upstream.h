@@ -892,6 +892,7 @@ private:
       return parent_.socket_factories_;
     }
     bool bindToPort() const override { return true; }
+    const std::string& versionInfo() const override { PANIC("not implemented"); }
     bool handOffRestoredDestinationConnections() const override { return false; }
     uint32_t perConnectionBufferLimitBytes() const override { return 0; }
     std::chrono::milliseconds listenerFiltersTimeout() const override { return {}; }

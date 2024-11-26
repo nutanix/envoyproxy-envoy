@@ -162,6 +162,7 @@ public:
     Stats::Scope& listenerScope() override { return *parent_.stats_store_.rootScope(); }
     uint64_t listenerTag() const override { return tag_; }
     const std::string& name() const override { return name_; }
+    const std::string& versionInfo() const override { PANIC("not implemented"); }
     Network::UdpListenerConfigOptRef udpListenerConfig() override { return *udp_listener_config_; }
     Network::InternalListenerConfigOptRef internalListenerConfig() override { return {}; }
     const Network::ListenerInfoConstSharedPtr& listenerInfo() const override {

@@ -147,6 +147,10 @@ public:
   MOCK_METHOD(MonotonicTime, approximateMonotonicTime, (), (const));
   MOCK_METHOD(void, updateApproximateMonotonicTime, ());
   MOCK_METHOD(void, shutdown, ());
+  MOCK_METHOD(void, setConnectionHandler, (Network::ConnectionHandler * connection_handler));
+  MOCK_METHOD(Network::ConnectionHandler*, connectionHandler, ());
+  MOCK_METHOD(void, setClusterManager, (Upstream::ClusterManager * cluster_manager));
+  MOCK_METHOD(Upstream::ClusterManager*, getClusterManager, ());
 
   std::unique_ptr<TimeSource> time_system_;
   std::list<DeferredDeletablePtr> to_delete_;
