@@ -7,6 +7,9 @@
 #include "source/extensions/bootstrap/reverse_connection/reverse_connection_initiator.h"
 
 namespace Envoy {
+namespace Upstream {
+class ClusterManager;
+}
 namespace Extensions {
 namespace Bootstrap {
 namespace ReverseConnection {
@@ -26,7 +29,7 @@ using RCInitiatorPtr = std::unique_ptr<ReverseConnectionInitiator>;
 class ReverseConnectionManagerImpl : Logger::Loggable<Logger::Id::main>,
                                      public Envoy::Network::ReverseConnectionManager {
 public:
-  ReverseConnectionManagerImpl(Event::Dispatcher& dispatcher);
+  ReverseConnectionManagerImpl(Event::Dispatcher& dispatcher, Upstream::ClusterManager& cluster_manager);
 
   // Constuct the RCManager scope from the base scope and stat prefix and store it in
   // reverse_conn_manager_scope_.
@@ -34,6 +37,9 @@ public:
 
   // Returns a reference to the parent dispatcher of the current thread.
   Event::Dispatcher& dispatcher() const override;
+
+  // Returns a reference to the cluster manager.
+  Upstream::ClusterManager& clusterManager() const override;
 
   /**
    * Checks whether an existing ReverseConnectionInitiator is present for the given listener.
@@ -100,6 +106,10 @@ public:
 private:
   // The parent dispatcher of the current thread.
   Event::Dispatcher& parent_dispatcher_;
+
+  // The cluster manager to get the thread local cluster. This is required
+  // to initiate reverse connections.
+  Upstream::ClusterManager& cluster_manager_;
 
   /**
    * Map of connection key -> RCInitiator that created the connection.

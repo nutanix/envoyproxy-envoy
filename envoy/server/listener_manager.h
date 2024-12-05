@@ -273,11 +273,6 @@ public:
   virtual bool isWorkerStarted() PURE;
 
   /*
-   * Set the cluster manager pointer for all workers.
-   */
-  virtual void setClusterManagerForWorkers(Upstream::ClusterManager* cluster_manager) PURE;
-
-  /*
    * Enable reverse connections on each worker.
    */
   virtual void enableReverseConnections(Network::RevConnRegistry& reverse_conn_registry) PURE;

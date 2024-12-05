@@ -754,8 +754,6 @@ absl::Status InstanceBase::initializeOrThrow(Network::Address::InstanceConstShar
   // cluster_manager_factory_ is available.
   RETURN_IF_NOT_OK(config_.initialize(bootstrap_, *this, *cluster_manager_factory_));
 
-  listener_manager_->setClusterManagerForWorkers(config_.clusterManager());
-
   // Instruct the listener manager to create the LDS provider if needed. This must be done later
   // because various items do not yet exist when the listener manager is created.
   if (bootstrap_.dynamic_resources().has_lds_config() ||

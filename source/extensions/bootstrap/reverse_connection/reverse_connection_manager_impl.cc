@@ -1,12 +1,13 @@
 #include "source/extensions/bootstrap/reverse_connection/reverse_connection_manager_impl.h"
+#include "envoy/upstream/cluster_manager.h"
 
 namespace Envoy {
 namespace Extensions {
 namespace Bootstrap {
 namespace ReverseConnection {
 
-ReverseConnectionManagerImpl::ReverseConnectionManagerImpl(Event::Dispatcher& dispatcher)
-    : parent_dispatcher_(dispatcher) {
+ReverseConnectionManagerImpl::ReverseConnectionManagerImpl(Event::Dispatcher& dispatcher, Upstream::ClusterManager& cluster_manager)
+    : parent_dispatcher_(dispatcher), cluster_manager_(cluster_manager) {
   ASSERT(parent_dispatcher_.isThreadSafe());
 }
 
@@ -18,8 +19,11 @@ void ReverseConnectionManagerImpl::initializeStats(Stats::Scope& scope) {
 }
 
 Event::Dispatcher& ReverseConnectionManagerImpl::dispatcher() const {
-  ENVOY_LOG(debug, "RCManager: Returning dispatcher: {}", parent_dispatcher_.name());
   return parent_dispatcher_;
+}
+
+Upstream::ClusterManager& ReverseConnectionManagerImpl::clusterManager() const {
+  return cluster_manager_;
 }
 
 void ReverseConnectionManagerImpl::findOrCreateRCInitiator(
