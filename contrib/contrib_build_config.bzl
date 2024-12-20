@@ -32,6 +32,12 @@ CONTRIB_EXTENSIONS = {
     "envoy.filters.network.golang":                             "//contrib/golang/filters/network/source:config",
 
     #
+    # Listener filters
+    #
+
+    "envoy.filters.listener.reverse_connection":                "//contrib/reverse_connection/filters/listener/source:config",
+
+    #
     # Reverse Connection
     #
     "envoy.bootstrap.reverse_connection":                          "//contrib/reverse_connection/bootstrap/source:reverse_conn_global_registry",
