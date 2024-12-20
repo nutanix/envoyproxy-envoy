@@ -156,6 +156,11 @@ public:
    * the params identifying the local envoy.
    */
   virtual ReverseConnParamsPtr& getReverseConnParams() PURE;
+
+  /**
+   * @return the global reverse conn registry.
+   */
+  virtual RevConnRegistry& reverseConnRegistry() PURE;
 };
 
 using ReverseConnectionListenerConfigOptRef = OptRef<ReverseConnectionListenerConfig>;
