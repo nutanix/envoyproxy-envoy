@@ -102,11 +102,9 @@ envoy_cc_library(
     name = "connection_impl",
     srcs = [
         "connection_impl.cc",
-        "reversed_connection_impl.cc",
     ],
     hdrs = [
         "connection_impl.h",
-        "reversed_connection_impl.h",
     ],
     external_deps = ["abseil_optional"],
     deps = [
