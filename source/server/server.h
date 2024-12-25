@@ -409,7 +409,6 @@ private:
   std::unique_ptr<OverloadManager> overload_manager_;
   std::unique_ptr<OverloadManager> null_overload_manager_;
   std::vector<BootstrapExtensionPtr> bootstrap_extensions_;
-  bool enable_reverse_connections_;
   Envoy::MutexTracer* mutex_tracer_;
   Grpc::ContextImpl grpc_context_;
   Http::ContextImpl http_context_;
