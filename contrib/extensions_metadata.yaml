@@ -102,6 +102,13 @@ envoy.reverse_connection.reverse_connection_listener_config:
   status: wip
   type_urls:
   - envoy.extensions.reverse_connection.reverse_connection_listener_config.v3alpha.ReverseConnectionListenerConfig
+envoy.clusters.reverse_connection:
+  categories:
+  - envoy.cluster
+  security_posture: unknown
+  status: wip
+  type_urls:
+  - envoy.extensions.clusters.reverse_connection.v3alpha.RevConClusterConfig
 envoy.bootstrap.vcl:
   categories:
   - envoy.bootstrap

@@ -34,6 +34,7 @@ CONTRIB_EXTENSIONS = {
     #
     "envoy.bootstrap.reverse_connection":                          "//contrib/reverse_connection/bootstrap/source:reverse_conn_global_registry",
     "envoy.reverse_connection.reverse_connection_listener_config": "//contrib/reverse_connection/reverse_connection_listener_config/source:reverse_connection_listener_config_lib",
+    "envoy.clusters.reverse_connection":                           "//contrib/reverse_connection/clusters/source:reverse_connection_lib",
 
     #
     # Sip proxy
