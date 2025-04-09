@@ -150,7 +150,7 @@ public:
   void setLastHcPassTime(MonotonicTime) override {}
   void priority(uint32_t) override {}
   void setLbPolicyData(HostLbPolicyDataPtr) override {}
-  void setHostId(const std::string host_id) override {}
+  void setHostId(const std::string) override {}
 
 private:
   const Network::Address::InstanceConstSharedPtr address_;
