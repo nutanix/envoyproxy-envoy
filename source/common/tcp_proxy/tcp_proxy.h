@@ -571,7 +571,7 @@ public:
       DUMP_DETAILS(parent_->getStreamInfo().upstreamInfo());
     }
 
-    void setReverseConnForceLocalReply(bool value) override {}
+    void setReverseConnForceLocalReply(bool) override {}
     Filter* parent_{};
     Http::RequestTrailerMapPtr request_trailer_map_;
     std::shared_ptr<Http::NullRouteImpl> route_;
