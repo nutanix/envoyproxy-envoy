@@ -24,6 +24,8 @@
 #include "source/common/network/utility.h"
 #include "source/common/protobuf/utility.h"
 
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/synchronization/blocking_counter.h"
 
 #if defined(ENVOY_ENABLE_QUIC)
@@ -285,6 +287,25 @@ absl::StatusOr<Network::SocketSharedPtr> ProdListenerComponentFactory::createLis
     const Network::SocketCreationOptions& creation_options, uint32_t worker_index) {
   ASSERT(socket_type == Network::Socket::Type::Stream ||
          socket_type == Network::Socket::Type::Datagram);
+  std::string addr_str = address->asString();
+  // Check if this is a reverse connection address by URL scheme
+  if (absl::StartsWith(addr_str, "rc://")) {
+    // Try to get a registered reverse connection socket interface
+    ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
+    auto socket_interface = server_.singletonManager().getTyped<Network::SocketInterface>(
+        "envoy.socket_interface.reverse_connection");
+    if (socket_interface) {
+      ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
+      auto io_handle = socket_interface->socket(socket_type, address, creation_options);
+      if (!io_handle) {
+        return absl::InvalidArgumentError("Failed to create reverse connection socket");
+      }
+      return std::make_shared<Network::TcpListenSocket>(std::move(io_handle), address, options);
+    } else {
+      ENVOY_LOG(warn, "Reverse connection address detected but socket interface not registered: {}", addr_str);
+      return absl::InvalidArgumentError("Reverse connection socket interface not available");
+    }
+  }
 
   // First we try to get the socket from our parent if applicable in each case below.
   if (address->type() == Network::Address::Type::Pipe) {

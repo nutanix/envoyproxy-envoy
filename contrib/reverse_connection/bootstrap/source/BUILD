@@ -80,10 +80,43 @@ envoy_cc_extension(
     deps = [
         ":reverse_connection_includes",
         ":reverse_connection_lib",
+        ":reverse_connection_resolver_lib",
         "//contrib/reverse_connection/reverse_connection_listener_config/source:reverse_connection_listener_config_lib",
         "//envoy/server:bootstrap_extension_config_interface",
         "@envoy_api//contrib/envoy/extensions/bootstrap/reverse_connection/v3alpha:pkg_cc_proto",
         "@envoy_api//contrib/envoy/extensions/reverse_connection/reverse_connection_listener_config/v3alpha:pkg_cc_proto",
     ],
     alwayslink = 1,
+)
+
+envoy_cc_library(
+    name = "reverse_connection_address_lib",
+    srcs = [
+        "reverse_connection_address.cc",
+    ],
+    hdrs = [
+        "reverse_connection_address.h",
+    ],
+    deps = [
+        "//envoy/network:address_interface",
+        "//source/common/common:fmt_lib",
+        "//source/common/network:socket_interface_lib",
+    ],
+)
+
+envoy_cc_library(
+    name = "reverse_connection_resolver_lib",
+    srcs = [
+        "reverse_connection_resolver.cc",
+    ],
+    hdrs = [
+        "reverse_connection_resolver.h",
+    ],
+    deps = [
+        ":reverse_connection_address_lib",
+        "//envoy/network:resolver_interface",
+        "//envoy/registry",
+        "//source/common/common:statusor_lib",
+    ],
+    visibility = ["//visibility:public"],
 )
