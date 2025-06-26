@@ -45,11 +45,6 @@ const std::string& ReverseConnectionAddress::logicalName() const {
   return logical_name_;
 }
 
-const Network::Address::Ip* ReverseConnectionAddress::ip() const {
-  // Reverse connection addresses don't have real IP
-  return nullptr;
-}
-
 const sockaddr* ReverseConnectionAddress::sockAddr() const {
   // Reverse connection addresses don't have real socket address
   return nullptr;

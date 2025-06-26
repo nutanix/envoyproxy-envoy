@@ -15,7 +15,6 @@ envoy_cc_library(
     hdrs = ["reverse_connection.h"],
     deps = [
         ":config_lib",
-        "//contrib/reverse_connection/bootstrap/source:reverse_conn_global_registry",
         "//envoy/event:dispatcher_interface",
         "//envoy/network:filter_interface",
         "//envoy/network:listen_socket_interface",

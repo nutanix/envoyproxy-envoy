@@ -20,6 +20,7 @@
 #include "source/common/network/filter_matcher.h"
 #include "source/common/network/io_socket_handle_impl.h"
 #include "source/common/network/listen_socket_impl.h"
+#include "source/common/network/socket_interface.h"
 #include "source/common/network/socket_option_factory.h"
 #include "source/common/network/utility.h"
 #include "source/common/protobuf/utility.h"
@@ -292,8 +293,7 @@ absl::StatusOr<Network::SocketSharedPtr> ProdListenerComponentFactory::createLis
   if (absl::StartsWith(addr_str, "rc://")) {
     // Try to get a registered reverse connection socket interface
     ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
-    auto socket_interface = server_.singletonManager().getTyped<Network::SocketInterface>(
-        "envoy.socket_interface.reverse_connection");
+    auto* socket_interface = Network::socketInterface("envoy.bootstrap.reverse_connection.reverse_connection_socket_interface");
     if (socket_interface) {
       ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
       auto io_handle = socket_interface->socket(socket_type, address, creation_options);

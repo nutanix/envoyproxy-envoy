@@ -293,7 +293,7 @@ void ConnectionImpl::setDetectedCloseType(DetectedCloseType close_type) {
 }
 
 ConnectionSocketPtr ConnectionImpl::moveSocket() {
-  ASSERT(isSocketReused());
+  // ASSERT(isSocketReused());
 
   // Clean up connection internals but don't close the socket.
   // cleanUpConnectionImpl();

@@ -17,25 +17,22 @@ ReverseConnectionConfigFactory::createListenerFilterFactoryFromProto(
   auto proto_config = MessageUtil::downcastAndValidate<
       const envoy::extensions::filters::listener::reverse_connection::v3alpha::ReverseConnection&>(
       message, context.messageValidationVisitor());
+  
+  // TODO(Basu): Remove dependency on ReverseConnRegistry singleton
   // Retrieve the ReverseConnRegistry singleton and acecss the thread local slot
-  std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry =
-      context.serverFactoryContext()
-          .singletonManager()
-          .getTyped<ReverseConnection::ReverseConnRegistry>("reverse_conn_registry_singleton");
-  if (reverse_conn_registry == nullptr) {
-    throw EnvoyException(
-        "Cannot create reverse connection listener filter. Reverse connection registry not found");
-  }
-  // ReverseConnection::RCThreadLocalRegistry* thread_local_registry =
-  // reverse_conn_registry->getLocalRegistry(); if (thread_local_registry == nullptr) {
-  //   throw EnvoyException("Cannot create reverse connection listener filter. Thread local reverse
-  //   connection registry is null");
+  // std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry =
+  //     context.serverFactoryContext()
+  //         .singletonManager()
+  //         .getTyped<ReverseConnection::ReverseConnRegistry>("reverse_conn_registry_singleton");
+  // if (reverse_conn_registry == nullptr) {
+  //   throw EnvoyException(
+  //       "Cannot create reverse connection listener filter. Reverse connection registry not found");
   // }
+  
   Config config(proto_config);
-  return [listener_filter_matcher, config,
-          reverse_conn_registry](Network::ListenerFilterManager& filter_manager) -> void {
+  return [listener_filter_matcher, config](Network::ListenerFilterManager& filter_manager) -> void {
     filter_manager.addAcceptFilter(listener_filter_matcher,
-                                   std::make_unique<Filter>(config, reverse_conn_registry));
+                                   std::make_unique<Filter>(config));
   };
 }
 

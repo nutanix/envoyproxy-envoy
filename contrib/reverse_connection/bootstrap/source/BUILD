@@ -81,10 +81,13 @@ envoy_cc_extension(
         ":reverse_connection_includes",
         ":reverse_connection_lib",
         ":reverse_connection_resolver_lib",
+        ":downstream_reverse_socket_interface_lib",
         "//contrib/reverse_connection/reverse_connection_listener_config/source:reverse_connection_listener_config_lib",
         "//envoy/server:bootstrap_extension_config_interface",
         "@envoy_api//contrib/envoy/extensions/bootstrap/reverse_connection/v3alpha:pkg_cc_proto",
         "@envoy_api//contrib/envoy/extensions/reverse_connection/reverse_connection_listener_config/v3alpha:pkg_cc_proto",
+        "@envoy_api//contrib/envoy/extensions/filters/http/reverse_conn/v3alpha:pkg_cc_proto",
+        "@envoy_api//contrib/envoy/extensions/bootstrap/reverse_connection_socket_interface/v3alpha:pkg_cc_proto",
     ],
     alwayslink = 1,
 )
@@ -119,4 +122,38 @@ envoy_cc_library(
         "//source/common/common:statusor_lib",
     ],
     visibility = ["//visibility:public"],
+)
+
+envoy_cc_extension(
+    name = "downstream_reverse_socket_interface_lib",
+    srcs = [
+        "downstream_reverse_socket_interface.cc",
+    ],
+    hdrs = [
+        "downstream_reverse_socket_interface.h",
+    ],
+    deps = [
+        ":reverse_connection_address_lib",
+        "//envoy/api:io_error_interface",
+        "//envoy/network:io_handle_interface",
+        "//envoy/network:socket_interface",
+        "//envoy/network:address_interface",
+        "//envoy/registry",
+        "//envoy/server:bootstrap_extension_config_interface",
+        "//envoy/stats:stats_interface",
+        "//envoy/stats:stats_macros",
+        "//envoy/upstream:cluster_manager_interface",
+        "//source/common/buffer:buffer_lib",
+        "//source/common/common:logger_lib",
+        "//source/common/http:headers_lib",
+        "//source/common/network:address_lib",
+        "//source/common/network:filter_lib",
+        "//source/common/protobuf",
+        "//source/common/network:default_socket_interface_lib",
+        "//source/common/upstream:load_balancer_context_base_lib",
+        "@envoy_api//contrib/envoy/extensions/filters/http/reverse_conn/v3alpha:pkg_cc_proto",
+        "@envoy_api//contrib/envoy/extensions/bootstrap/reverse_connection_socket_interface/v3alpha:pkg_cc_proto",
+    ],
+    visibility = ["//visibility:public"],
+    alwayslink = 1,
 )

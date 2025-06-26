@@ -24,9 +24,8 @@ namespace ReverseConnection {
 const absl::string_view Filter::RPING_MSG = "RPING";
 const absl::string_view Filter::PROXY_MSG = "PROXY";
 
-Filter::Filter(const Config& config,
-               std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry)
-    : config_(config), reverse_conn_registry_(reverse_conn_registry) {
+Filter::Filter(const Config& config)
+    : config_(config) {
   ENVOY_LOG(debug, "reverse_connection: ping_wait_timeout is {}",
             config_.pingWaitTimeout().count());
 }
@@ -47,9 +46,13 @@ void Filter::onClose() {
   const std::string& connectionKey =
       cb_->socket().connectionInfoProvider().localAddress()->asString();
 
+  // TODO(Basu): Remove dependency on getRCManager and use socket interface directly
   // The rc filter responds to pings until data is received, so if onClose() is invoked,
   // then an idle reverse connection has been closed.
-  reverseConnectionManager().notifyConnectionClose(connectionKey, false /* is_used */);
+  // reverseConnectionManager().notifyConnectionClose(connectionKey, false /* is_used */);
+
+  ENVOY_LOG(debug, "reverse_connection: onClose: connectionKey: {} connection_used_ {}", connectionKey, connection_used_);
+  
   // If a connection is closed before data is received, mark the socket dead.
   if (!connection_used_) {
     ENVOY_LOG(debug, "reverse_connection: marking the socket dead, fd {}", fd());
@@ -79,7 +82,10 @@ void Filter::onPingWaitTimeout() {
             "RCManager.",
             fd(), connectionKey,
             cb_->socket().connectionInfoProvider().remoteAddress()->asStringView());
-  reverseConnectionManager().notifyConnectionClose(connectionKey, false);
+  
+  // TODO(Basu): Remove dependency on getRCManager and use socket interface directly
+  // reverseConnectionManager().notifyConnectionClose(connectionKey, false);
+  
   cb_->continueFilterChain(false);
 }
 
@@ -92,10 +98,12 @@ Network::FilterStatus Filter::onData(Network::ListenerFilterBuffer& buffer) {
     return Network::FilterStatus::StopIteration;
   case ReadOrParseState::Done:
     ENVOY_LOG(debug, "reverse_connection: marking the socket ready for use, fd {}", fd());
+    // TODO(Basu): Remove dependency on getRCManager and use socket interface directly
     // Call the RC Manager to update the RCManager Stats and log the connection used.
     const std::string& connectionKey =
         cb_->socket().connectionInfoProvider().localAddress()->asString();
-    reverseConnectionManager().markConnUsed(connectionKey);
+    ENVOY_LOG(debug, "reverse_connection: marking the socket ready for use, connectionKey: {}", connectionKey);
+    // reverseConnectionManager().markConnUsed(connectionKey);
     connection_used_ = true;
     return Network::FilterStatus::Continue;
   }

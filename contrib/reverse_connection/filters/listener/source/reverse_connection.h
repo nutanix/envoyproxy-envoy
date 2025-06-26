@@ -7,8 +7,9 @@
 #include "source/common/common/logger.h"
 
 #include "absl/strings/string_view.h"
-#include "contrib/reverse_connection/bootstrap/source/reverse_conn_global_registry.h"
-#include "contrib/reverse_connection/bootstrap/source/reverse_connection_manager.h"
+// TODO(Basu): Remove dependency on reverse_conn_global_registry and reverse_connection_manager
+// #include "contrib/reverse_connection/bootstrap/source/reverse_conn_global_registry.h"
+// #include "contrib/reverse_connection/bootstrap/source/reverse_connection_manager.h"
 #include "contrib/reverse_connection/filters/listener/source/config.h"
 
 namespace Envoy {
@@ -16,7 +17,7 @@ namespace Extensions {
 namespace ListenerFilters {
 namespace ReverseConnection {
 
-namespace ReverseConnection = Envoy::Extensions::Bootstrap::ReverseConnection;
+// namespace ReverseConnection = Envoy::Extensions::Bootstrap::ReverseConnection;
 
 enum class ReadOrParseState { Done, TryAgainLater, Error };
 
@@ -25,8 +26,7 @@ enum class ReadOrParseState { Done, TryAgainLater, Error };
  */
 class Filter : public Network::ListenerFilter, Logger::Loggable<Logger::Id::filter> {
 public:
-  Filter(const Config& config,
-         std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry);
+  Filter(const Config& config);
   ~Filter();
 
   // Network::ListenerFilter
@@ -34,15 +34,17 @@ public:
   size_t maxReadBytes() const override;
   Network::FilterStatus onData(Network::ListenerFilterBuffer&) override;
   void onClose() override;
-  ReverseConnection::ReverseConnectionManager& reverseConnectionManager() {
-    ReverseConnection::RCThreadLocalRegistry* thread_local_registry =
-        reverse_conn_registry_->getLocalRegistry();
-    if (thread_local_registry == nullptr) {
-      throw EnvoyException(
-          "Cannot get ReverseConnectionManager. Thread local reverse connection registry is null");
-    }
-    return thread_local_registry->getRCManager();
-  }
+
+  // TODO(Basu): Remove getRCManager dependency and use socket interface directly
+  // ReverseConnection::ReverseConnectionManager& reverseConnectionManager() {
+  //   ReverseConnection::RCThreadLocalRegistry* thread_local_registry =
+  //       reverse_conn_registry_->getLocalRegistry();
+  //   if (thread_local_registry == nullptr) {
+  //     throw EnvoyException(
+  //         "Cannot get ReverseConnectionManager. Thread local reverse connection registry is null");
+  //   }
+  //   return thread_local_registry->getRCManager();
+  // }
 
 private:
   static const absl::string_view RPING_MSG;
@@ -53,7 +55,8 @@ private:
   ReadOrParseState parseBuffer(Network::ListenerFilterBuffer&);
 
   Config config_;
-  std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry_;
+  // TODO(Basu): Remove dependency on ReverseConnRegistry
+  // std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry_;
 
   Network::ListenerFilterCallbacks* cb_{};
   Event::FileEventPtr file_event_;
