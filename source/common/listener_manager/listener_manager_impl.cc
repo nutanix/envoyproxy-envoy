@@ -293,7 +293,7 @@ absl::StatusOr<Network::SocketSharedPtr> ProdListenerComponentFactory::createLis
   if (absl::StartsWith(addr_str, "rc://")) {
     // Try to get a registered reverse connection socket interface
     ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
-    auto* socket_interface = Network::socketInterface("envoy.bootstrap.reverse_connection.reverse_connection_socket_interface");
+    auto* socket_interface = Network::socketInterface("envoy.bootstrap.reverse_connection.downstream_reverse_connection_socket_interface");
     if (socket_interface) {
       ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
       auto io_handle = socket_interface->socket(socket_type, address, creation_options);
@@ -303,6 +303,25 @@ absl::StatusOr<Network::SocketSharedPtr> ProdListenerComponentFactory::createLis
       return std::make_shared<Network::TcpListenSocket>(std::move(io_handle), address, options);
     } else {
       ENVOY_LOG(warn, "Reverse connection address detected but socket interface not registered: {}", addr_str);
+      return absl::InvalidArgumentError("Reverse connection socket interface not available");
+    }
+  }
+  
+  // Also check logicalName() for reverse connection addresses
+  std::string logical_name = address->logicalName();
+  if (absl::StartsWith(logical_name, "rc://")) {
+    // Try to get a registered reverse connection socket interface
+    ENVOY_LOG(debug, "Creating reverse connection socket for logical name: {}", logical_name);
+    auto* socket_interface = Network::socketInterface("envoy.bootstrap.reverse_connection.downstream_reverse_connection_socket_interface");
+    if (socket_interface) {
+      ENVOY_LOG(debug, "Creating reverse connection socket for logical name: {}", logical_name);
+      auto io_handle = socket_interface->socket(socket_type, address, creation_options);
+      if (!io_handle) {
+        return absl::InvalidArgumentError("Failed to create reverse connection socket");
+      }
+      return std::make_shared<Network::TcpListenSocket>(std::move(io_handle), address, options);
+    } else {
+      ENVOY_LOG(warn, "Reverse connection address detected but socket interface not registered: {}", logical_name);
       return absl::InvalidArgumentError("Reverse connection socket interface not available");
     }
   }

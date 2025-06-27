@@ -14,7 +14,7 @@ envoy_cc_library(
     srcs = ["reverse_conn_filter.cc"],
     hdrs = ["reverse_conn_filter.h"],
     deps = [
-        "//contrib/reverse_connection/bootstrap/source:reverse_conn_global_registry",
+        "//contrib/reverse_connection/bootstrap/source:upstream_reverse_socket_interface_lib",
         "//envoy/event:timer_interface",
         "//envoy/http:codes_interface",
         "//envoy/http:filter_interface",

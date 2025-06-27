@@ -1,7 +1,12 @@
 #pragma once
 
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <functional>
+
 #include "envoy/network/address.h"
 #include "source/common/network/socket_interface.h"
+#include "source/common/network/address_impl.h"
 
 namespace Envoy {
 namespace Extensions {
@@ -30,7 +35,7 @@ public:
   const std::string& asString() const override;
   absl::string_view asStringView() const override;
   const std::string& logicalName() const override;
-  const Network::Address::Ip* ip() const override { return &ip_; }
+  const Network::Address::Ip* ip() const override { return ipv4_instance_->ip(); }
   const Network::Address::Pipe* pipe() const override { return nullptr; }
   const Network::Address::EnvoyInternalAddress* envoyInternalAddress() const override { 
     return nullptr; 
@@ -44,23 +49,12 @@ public:
   const ReverseConnectionConfig& reverseConnectionConfig() const { return config_; }
 
 private:
-  // Simple IPv4 implementation for reverse connection addresses
-  struct ReverseConnectionIp : public Network::Address::Ip {
-    const std::string& addressAsString() const override { return address_string_; }
-    bool isAnyAddress() const override { return false; }
-    bool isUnicastAddress() const override { return true; }
-    const Network::Address::Ipv4* ipv4() const override { return nullptr; }
-    const Network::Address::Ipv6* ipv6() const override { return nullptr; }
-    uint32_t port() const override { return 0; }
-    Network::Address::IpVersion version() const override { return Network::Address::IpVersion::v4; }
-    
-    std::string address_string_{"127.0.0.1"}; // Use localhost as default
-  };
-
   ReverseConnectionConfig config_;
   std::string address_string_;
   std::string logical_name_;
-  ReverseConnectionIp ip_;
+  // Use a regular Ipv4Instance for 127.0.0.1:0
+  Network::Address::InstanceConstSharedPtr ipv4_instance_{
+      std::make_shared<Network::Address::Ipv4Instance>("127.0.0.1", 0)};
 };
 
 } // namespace ReverseConnection

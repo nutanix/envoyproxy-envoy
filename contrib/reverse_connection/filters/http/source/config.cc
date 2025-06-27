@@ -15,24 +15,14 @@ namespace ReverseConn {
 Http::FilterFactoryCb ReverseConnFilterConfigFactory::createFilterFactoryFromProtoTyped(
     const envoy::extensions::filters::http::reverse_conn::v3alpha::ReverseConn& proto_config,
     const std::string&, Server::Configuration::FactoryContext& context) {
+  (void)context;
   ReverseConnFilterConfigSharedPtr config =
       std::make_shared<ReverseConnFilterConfig>(ReverseConnFilterConfig(proto_config));
 
-  // Retrieve the ReverseConnRegistry singleton and access the thread local slot
-  std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry =
-      context.serverFactoryContext()
-          .singletonManager()
-          .getTyped<ReverseConnection::ReverseConnRegistry>("reverse_conn_registry_singleton");
-  if (reverse_conn_registry == nullptr) {
-    throw EnvoyException(
-        "Cannot create reverse conn http filter. Reverse connection registry not found");
-  }
-
-  // The ReverseConnFilter is initialized before the workers are created and therefore only the
-  // reverse conn global registry is available.
-  return [config, reverse_conn_registry](Http::FilterChainFactoryCallbacks& callbacks) -> void {
+  // The filter now uses the upstream socket interface directly, no need for registry
+  return [config](Http::FilterChainFactoryCallbacks& callbacks) -> void {
     callbacks.addStreamDecoderFilter(
-        std::make_shared<ReverseConnFilter>(config, reverse_conn_registry));
+        std::make_shared<ReverseConnFilter>(config));
   };
 }
 

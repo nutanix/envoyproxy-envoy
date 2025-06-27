@@ -5,14 +5,10 @@ node:
 
 # Enable reverse connection bootstrap extension which registers the custom resolver
 bootstrap_extensions:
-# - name: envoy.bootstrap.reverse_connection
-#   typed_config:
-#     "@type": type.googleapis.com/envoy.extensions.bootstrap.reverse_connection.v3alpha.ReverseConnection
-#     stat_prefix: "reverse_connection"
-- name: envoy.bootstrap.reverse_connection.reverse_connection_socket_interface
+- name: envoy.bootstrap.reverse_connection.downstream_reverse_connection_socket_interface
   typed_config:
-    "@type": type.googleapis.com/envoy.extensions.bootstrap.reverse_connection_socket_interface.v3alpha.ReverseConnectionSocketInterface
-    stat_prefix: "reverse_connection_socket_interface"
+    "@type": type.googleapis.com/envoy.extensions.bootstrap.reverse_connection_socket_interface.v3alpha.DownstreamReverseConnectionSocketInterface
+    stat_prefix: "downstream_reverse_connection"
 
 static_resources:
   listeners:
@@ -76,13 +72,13 @@ static_resources:
         - name: envoy.filters.listener.reverse_connection
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.filters.listener.reverse_connection.v3alpha.ReverseConnection
-            ping_wait_timeout: 4
+            ping_wait_timeout: 120
       # Use custom address with reverse connection metadata encoded in URL format
       address:
         socket_address:
           # This encodes: src_node_id=on-prem-node, src_cluster_id=on-prem, src_tenant_id=on-prem
           # and remote clusters: cloud with 1 connection
-          address: "rc://on-prem-node:on-prem:on-prem@cloud:1"
+          address: "rc://on-prem-node:on-prem:on-prem@cloud:2"
           port_value: 0
           # Use custom resolver that can parse reverse connection metadata
           resolver_name: "envoy.resolvers.reverse_connection"

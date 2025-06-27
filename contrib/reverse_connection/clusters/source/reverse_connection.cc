@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/status/statusor.h"
 #include "envoy/config/cluster/v3/cluster.pb.h"
 #include "envoy/config/core/v3/base.pb.h"
 #include "envoy/config/core/v3/health_check.pb.h"
@@ -69,20 +70,28 @@ Upstream::HostSelectionResponse RevConCluster::checkAndCreateHost(const std::str
   host_map_lock_.ReaderUnlock();
 
   absl::WriterMutexLock wlock(&host_map_lock_);
-  // We have to use genuine IPv4 address, otherwise Envoy will raise an exception
-  // saying found malformed IPv4 address.
-  Network::Address::InstanceConstSharedPtr host_ip_port(
-      std::make_shared<Network::Address::Ipv4Instance>("0.0.0.0", 0, nullptr));
-  Upstream::HostSharedPtr host(std::shared_ptr<Upstream::HostImpl>(THROW_OR_RETURN_VALUE(
-      Upstream::HostImpl::create(
-          info(), absl::StrCat(info()->name(), static_cast<std::string>(host_id)),
-          std::move(host_ip_port), nullptr /* metadata */, nullptr, 1 /* initial_weight */,
-          envoy::config::core::v3::Locality().default_instance(),
-          envoy::config::endpoint::v3::Endpoint::HealthCheckConfig().default_instance(),
-          0 /* priority */, envoy::config::core::v3::UNKNOWN, time_source_),
-      std::unique_ptr<Upstream::HostImpl>)));
+
+  // Create a custom address that uses the UpstreamReverseSocketInterface
+  Network::Address::InstanceConstSharedPtr host_address(
+      std::make_shared<UpstreamReverseConnectionAddress>(host_id));
+  
+  // Create a standard HostImpl using the custom address
+  auto host_result = Upstream::HostImpl::create(
+      info(), absl::StrCat(info()->name(), static_cast<std::string>(host_id)),
+      std::move(host_address), nullptr /* endpoint_metadata */, nullptr /* locality_metadata */, 
+      1 /* initial_weight */, envoy::config::core::v3::Locality().default_instance(),
+      envoy::config::endpoint::v3::Endpoint::HealthCheckConfig().default_instance(),
+      0 /* priority */, envoy::config::core::v3::UNKNOWN, time_source_);
+  
+  if (!host_result.ok()) {
+    ENVOY_LOG(error, "Failed to create HostImpl for {}: {}", host_id, host_result.status().ToString());
+    return {nullptr};
+  }
+  
+  // Convert unique_ptr to shared_ptr
+  Upstream::HostSharedPtr host(std::move(host_result.value()));
   host->setHostId(host_id);
-  ENVOY_LOG(trace, "Created a host {} for {}.", *host, host_id);
+  ENVOY_LOG(trace, "Created a HostImpl {} for {} that will use UpstreamReverseSocketInterface.", *host, host_id);
 
   host_map_[host_id] = host;
   return {host};

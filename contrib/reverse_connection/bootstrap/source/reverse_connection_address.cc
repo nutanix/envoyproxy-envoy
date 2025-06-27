@@ -1,5 +1,11 @@
 #include "contrib/reverse_connection/bootstrap/source/reverse_connection_address.h"
 
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <functional>
+#include <cstring>
+#include <arpa/inet.h>
+
 #include "source/common/common/fmt.h"
 
 namespace Envoy {
@@ -10,15 +16,17 @@ namespace ReverseConnection {
 ReverseConnectionAddress::ReverseConnectionAddress(const ReverseConnectionConfig& config)
     : config_(config) {
   
-  // Create address string from reverse connection config
-  address_string_ = fmt::format("rc://{}:{}:{}@{}:{}", 
-                               config.src_node_id, config.src_cluster_id, config.src_tenant_id,
-                               config.remote_cluster, config.connection_count);
+  // Create the logical name (rc:// address) for identification
+  logical_name_ = fmt::format("rc://{}:{}:{}@{}:{}", 
+                             config.src_node_id, config.src_cluster_id, config.src_tenant_id,
+                             config.remote_cluster, config.connection_count);
   
-  // Set logical name to be the same as address string
-  logical_name_ = address_string_;
+  // Use localhost with a random port for the actual address string to pass IP validation
+  // This will be used by the filter chain manager for matching
+  address_string_ = "127.0.0.1:0";
 
-  ENVOY_LOG_MISC(info, "Reverse connection address: {}", address_string_);
+  ENVOY_LOG_MISC(info, "Reverse connection address: logical_name={}, address_string={}", 
+                 logical_name_, address_string_);
 }
 
 bool ReverseConnectionAddress::operator==(const Instance& rhs) const {
@@ -46,12 +54,16 @@ const std::string& ReverseConnectionAddress::logicalName() const {
 }
 
 const sockaddr* ReverseConnectionAddress::sockAddr() const {
-  // Reverse connection addresses don't have real socket address
-  return nullptr;
+  // Return a valid localhost sockaddr structure for IP validation
+  static struct sockaddr_in addr;
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(0);  // Port 0
+  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);  // 127.0.0.1
+  return reinterpret_cast<const sockaddr*>(&addr);
 }
 
 socklen_t ReverseConnectionAddress::sockAddrLen() const {
-  return 0;
+  return sizeof(struct sockaddr_in);
 }
 
 } // namespace ReverseConnection

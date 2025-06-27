@@ -33,9 +33,12 @@ Filter::Filter(const Config& config)
 int Filter::fd() { return cb_->socket().ioHandle().fdDoNotUse(); }
 
 Filter::~Filter() {
-  ENVOY_LOG(debug, "reverse_connection: filter destroyed socket().isOpen(): {}",
-            cb_->socket().isOpen());
+  ENVOY_LOG(debug, "reverse_connection: filter destroyed socket().isOpen(): {} connection_used_: {}",
+            cb_->socket().isOpen(), connection_used_);
+  // Only close the socket if the connection was not used (i.e., no data was received)
+  // If connection_used_ is true, Envoy needs the socket for the new connection
   if (!connection_used_ && cb_->socket().isOpen()) {
+    ENVOY_LOG(debug, "reverse_connection: closing unused socket in destructor, fd {}", fd());
     cb_->socket().close();
   }
 }
@@ -46,10 +49,6 @@ void Filter::onClose() {
   const std::string& connectionKey =
       cb_->socket().connectionInfoProvider().localAddress()->asString();
 
-  // TODO(Basu): Remove dependency on getRCManager and use socket interface directly
-  // The rc filter responds to pings until data is received, so if onClose() is invoked,
-  // then an idle reverse connection has been closed.
-  // reverseConnectionManager().notifyConnectionClose(connectionKey, false /* is_used */);
 
   ENVOY_LOG(debug, "reverse_connection: onClose: connectionKey: {} connection_used_ {}", connectionKey, connection_used_);
   

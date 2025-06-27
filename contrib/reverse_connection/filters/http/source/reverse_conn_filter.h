@@ -13,9 +13,7 @@
 
 #include "absl/types/optional.h"
 #include "contrib/envoy/extensions/filters/http/reverse_conn/v3alpha/reverse_conn.pb.h"
-#include "contrib/reverse_connection/bootstrap/source/reverse_conn_global_registry.h"
-#include "contrib/reverse_connection/bootstrap/source/reverse_connection_handler.h"
-#include "contrib/reverse_connection/bootstrap/source/reverse_connection_manager.h"
+#include "contrib/reverse_connection/bootstrap/source/upstream_reverse_socket_interface.h"
 
 namespace Envoy {
 
@@ -56,8 +54,7 @@ static const char DOUBLE_CRLF[] = "\r\n\r\n";
 
 class ReverseConnFilter : Logger::Loggable<Logger::Id::filter>, public Http::StreamDecoderFilter {
 public:
-  ReverseConnFilter(ReverseConnFilterConfigSharedPtr config,
-                    std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry);
+  ReverseConnFilter(ReverseConnFilterConfigSharedPtr config);
   ~ReverseConnFilter();
 
   // Http::StreamFilterBase
@@ -100,7 +97,7 @@ private:
   // in the format: {"accepted": ["cluster_1", "cluster_2"], "connected": ["cluster_3"]}.
   Http::FilterHeadersStatus getReverseConnectionInfo();
   // API to accept a reverse connection request. The handler obtains the cluster, tenant, etc
-  // from the query parameters from the request and calls the ReverseConnectionHandler to cache
+  // from the query parameters from the request and calls the UpstreamSocketManager to cache
   // the socket.
   Http::FilterDataStatus acceptReverseConnection();
 
@@ -120,28 +117,30 @@ private:
 
   bool matchRequestPath(const absl::string_view& request_path, const std::string& api_path);
 
-  ReverseConnection::ReverseConnectionHandler& reverseConnectionHandler() {
-    ReverseConnection::RCThreadLocalRegistry* thread_local_registry =
-        reverse_conn_registry_->getLocalRegistry();
-    if (thread_local_registry == nullptr) {
-      throw EnvoyException(
-          "Cannot get ReverseConnectionHandler. Thread local reverse connection registry is null");
+  // Get the upstream socket manager from the thread-local registry
+  ReverseConnection::UpstreamSocketManager* getUpstreamSocketManager() {
+    auto* upstream_interface = Network::socketInterface("envoy.bootstrap.reverse_connection.upstream_reverse_connection_socket_interface");
+    if (!upstream_interface) {
+      ENVOY_LOG(error, "Upstream reverse socket interface not found");
+      return nullptr;
     }
-    return thread_local_registry->getRCHandler();
-  }
-
-  ReverseConnection::ReverseConnectionManager& reverseConnectionManager() {
-    ReverseConnection::RCThreadLocalRegistry* thread_local_registry =
-        reverse_conn_registry_->getLocalRegistry();
-    if (thread_local_registry == nullptr) {
-      throw EnvoyException(
-          "Cannot get ReverseConnectionManager. Thread local reverse connection registry is null");
+    
+    auto* upstream_socket_interface = dynamic_cast<const ReverseConnection::UpstreamReverseSocketInterface*>(upstream_interface);
+    if (!upstream_socket_interface) {
+      ENVOY_LOG(error, "Failed to cast to UpstreamReverseSocketInterface");
+      return nullptr;
     }
-    return thread_local_registry->getRCManager();
+    
+    auto* tls_registry = upstream_socket_interface->getLocalRegistry();
+    if (!tls_registry) {
+      ENVOY_LOG(error, "Thread local registry not found for upstream socket interface");
+      return nullptr;
+    }
+    
+    return tls_registry->socketManager();
   }
 
   const ReverseConnFilterConfigSharedPtr config_;
-  std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry_;
   Http::StreamDecoderFilterCallbacks* decoder_callbacks_;
   Network::ClientConnectionPtr connection_;
 
@@ -150,11 +149,6 @@ private:
 
   // Cluster where outgoing RC request is being sent to
   std::string remote_cluster_id_;
-
-  // Whether the connection expects a proxy protocol header when connected.
-  // This will be true for older remote sites that do not use protobuf based
-  // connection setup.
-  bool expects_proxy_protocol_;
 
   // True, if the request path indicate that is an accept request that is not
   // meant to initiate reverse connections.

@@ -4,12 +4,19 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <functional>
+#include <cstring>
 
+#include "absl/status/statusor.h"
 #include "envoy/config/cluster/v3/cluster.pb.h"
 
 #include "source/common/common/logger.h"
 #include "source/common/upstream/cluster_factory_impl.h"
 #include "source/common/upstream/upstream_impl.h"
+#include "source/common/network/socket_interface.h"
+#include "source/common/network/address_impl.h"
 
 #include "contrib/envoy/extensions/clusters/reverse_connection/v3alpha/reverse_connection.pb.h"
 #include "contrib/envoy/extensions/clusters/reverse_connection/v3alpha/reverse_connection.pb.validate.h"
@@ -17,6 +24,80 @@
 namespace Envoy {
 namespace Extensions {
 namespace ReverseConnection {
+
+/**
+ * Custom address type that uses the UpstreamReverseSocketInterface.
+ * This address will be used by RevConHost to ensure socket creation goes through
+ * the upstream socket interface.
+ */
+class UpstreamReverseConnectionAddress : public Network::Address::Instance,
+                                         public Envoy::Logger::Loggable<Envoy::Logger::Id::connection> {
+public:
+  UpstreamReverseConnectionAddress(const std::string& cluster_id)
+      : cluster_id_(cluster_id), address_string_("127.0.0.1:0") {
+    
+    // Create a simple socket address for filter chain matching
+    // Use 127.0.0.1:0 which will match the catch-all filter chain
+    synthetic_sockaddr_.sin_family = AF_INET;
+    synthetic_sockaddr_.sin_port = htons(0); // Port 0 for reverse connections
+    synthetic_sockaddr_.sin_addr.s_addr = htonl(0x7f000001); // 127.0.0.1
+    memset(&synthetic_sockaddr_.sin_zero, 0, sizeof(synthetic_sockaddr_.sin_zero));
+
+    ENVOY_LOG(debug, "UpstreamReverseConnectionAddress: cluster: {} using 127.0.0.1:0 for filter chain matching", cluster_id_);
+  }
+
+  // Network::Address::Instance
+  bool operator==(const Instance& rhs) const override {
+    const auto* other = dynamic_cast<const UpstreamReverseConnectionAddress*>(&rhs);
+    return other && cluster_id_ == other->cluster_id_;
+  }
+  
+  Network::Address::Type type() const override { return Network::Address::Type::Ip; }
+  const std::string& asString() const override { return address_string_; }
+  absl::string_view asStringView() const override { return address_string_; }
+  const std::string& logicalName() const override { return cluster_id_; }
+  const Network::Address::Ip* ip() const override { return &ip_; }
+  const Network::Address::Pipe* pipe() const override { return nullptr; }
+  const Network::Address::EnvoyInternalAddress* envoyInternalAddress() const override { 
+    return nullptr; 
+  }
+  const sockaddr* sockAddr() const override { return reinterpret_cast<const sockaddr*>(&synthetic_sockaddr_); }
+  socklen_t sockAddrLen() const override { return sizeof(synthetic_sockaddr_); }
+  // Set to default so that the default client connection factory is used to initiate connections to the address.
+  absl::string_view addressType() const override { return "default"; }
+  
+  // Override socketInterface to use the UpstreamReverseSocketInterface
+  const Network::SocketInterface& socketInterface() const override {
+    ENVOY_LOG(debug, "UpstreamReverseConnectionAddress: socketInterface() called for cluster: {}", cluster_id_);
+    auto* upstream_interface = Network::socketInterface("envoy.bootstrap.reverse_connection.upstream_reverse_connection_socket_interface");
+    if (upstream_interface) {
+      ENVOY_LOG(debug, "UpstreamReverseConnectionAddress: Using UpstreamReverseSocketInterface for cluster: {}", cluster_id_);
+      return *upstream_interface;
+    }
+    // Fallback to default socket interface if upstream interface is not available
+    ENVOY_LOG(debug, "UpstreamReverseConnectionAddress: UpstreamReverseSocketInterface not available, falling back to default for cluster: {}", cluster_id_);
+    return *Network::socketInterface("envoy.extensions.network.socket_interface.default_socket_interface");
+  }
+
+private:
+  // Simple IPv4 implementation for upstream reverse connection addresses
+  struct UpstreamReverseConnectionIp : public Network::Address::Ip {
+    const std::string& addressAsString() const override { return address_string_; }
+    bool isAnyAddress() const override { return true; }
+    bool isUnicastAddress() const override { return false; }
+    const Network::Address::Ipv4* ipv4() const override { return nullptr; }
+    const Network::Address::Ipv6* ipv6() const override { return nullptr; }
+    uint32_t port() const override { return 0; }
+    Network::Address::IpVersion version() const override { return Network::Address::IpVersion::v4; }
+    
+    std::string address_string_{"0.0.0.0:0"};
+  };
+
+  std::string cluster_id_;
+  std::string address_string_;
+  UpstreamReverseConnectionIp ip_;
+  struct sockaddr_in synthetic_sockaddr_; // Socket address for filter chain matching
+};
 
 /**
  * The RevConCluster is a dynamic cluster that automatically adds hosts using

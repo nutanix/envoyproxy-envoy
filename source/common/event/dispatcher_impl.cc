@@ -172,6 +172,7 @@ Network::ClientConnectionPtr DispatcherImpl::createClientConnection(
   // TODO(lambdai): Return a closed connection if the factory is not found. Note that the caller
   // expects a non-null connection as of today so we cannot gracefully handle unsupported address
   // type.
+  ENVOY_LOG(debug, "factory: {}", factory->name());
   return factory->createClientConnection(*this, address, source_address,
                                          std::move(transport_socket), options, transport_options);
 }

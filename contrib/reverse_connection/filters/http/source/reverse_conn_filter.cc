@@ -25,11 +25,8 @@ const std::string ReverseConnFilter::tenant_id_param = "tenant_id";
 const std::string ReverseConnFilter::role_param = "role";
 const std::string ReverseConnFilter::rc_accepted_response = "reverse connection accepted";
 
-ReverseConnFilter::ReverseConnFilter(
-    ReverseConnFilterConfigSharedPtr config,
-    std::shared_ptr<ReverseConnection::ReverseConnRegistry> reverse_conn_registry)
-    : config_(config), reverse_conn_registry_(reverse_conn_registry),
-      expects_proxy_protocol_(false), is_accept_request_(false),
+ReverseConnFilter::ReverseConnFilter(ReverseConnFilterConfigSharedPtr config)
+    : config_(config), is_accept_request_(false),
       accept_rev_conn_proto_(Buffer::OwnedImpl()) {}
 
 ReverseConnFilter::~ReverseConnFilter() {}
@@ -90,25 +87,14 @@ Http::FilterDataStatus ReverseConnFilter::acceptReverseConnection() {
 
   decoder_callbacks_->setReverseConnForceLocalReply(true);
   envoy::extensions::filters::http::reverse_conn::v3alpha::ReverseConnHandshakeRet ret;
-  if (expects_proxy_protocol_) {
-    // This is an older remote side and is sending us params using HTTP query
-    // parameters.
-    getClusterDetailsUsingQueryParams(&node_uuid, &cluster_uuid, &tenant_uuid);
-    if (node_uuid.empty()) {
-      decoder_callbacks_->sendLocalReply(Http::Code::BadGateway, "node_id required", nullptr,
-                                         absl::nullopt, "");
-      return Http::FilterDataStatus::StopIterationNoBuffer;
-    }
-  } else {
-    getClusterDetailsUsingProtobuf(&node_uuid, &cluster_uuid, &tenant_uuid);
-    if (node_uuid.empty()) {
-      ret.set_status(envoy::extensions::filters::http::reverse_conn::v3alpha::
-                         ReverseConnHandshakeRet::REJECTED);
-      ret.set_status_message("Failed to parse request message or required fields missing");
-      decoder_callbacks_->sendLocalReply(Http::Code::BadGateway, ret.SerializeAsString(), nullptr,
-                                         absl::nullopt, "");
-      return Http::FilterDataStatus::StopIterationNoBuffer;
-    }
+  getClusterDetailsUsingProtobuf(&node_uuid, &cluster_uuid, &tenant_uuid);
+  if (node_uuid.empty()) {
+    ret.set_status(envoy::extensions::filters::http::reverse_conn::v3alpha::
+                       ReverseConnHandshakeRet::REJECTED);
+    ret.set_status_message("Failed to parse request message or required fields missing");
+    decoder_callbacks_->sendLocalReply(Http::Code::BadGateway, ret.SerializeAsString(), nullptr,
+                                       absl::nullopt, "");
+    return Http::FilterDataStatus::StopIterationNoBuffer;
   }
 
   Network::Connection* connection =
@@ -134,17 +120,13 @@ Http::FilterDataStatus ReverseConnFilter::acceptReverseConnection() {
     }
   }
 
-  if (expects_proxy_protocol_) {
-    decoder_callbacks_->sendLocalReply(Http::Code::OK, rc_accepted_response, nullptr, absl::nullopt,
-                                       "");
-  } else {
-    ENVOY_STREAM_LOG(info, "Accepting reverse connection", *decoder_callbacks_);
-    ret.set_status(
-        envoy::extensions::filters::http::reverse_conn::v3alpha::ReverseConnHandshakeRet::ACCEPTED);
-    ENVOY_STREAM_LOG(info, "return value", *decoder_callbacks_, ret.SerializeAsString());
-    decoder_callbacks_->sendLocalReply(Http::Code::OK, ret.SerializeAsString(), nullptr,
-                                       absl::nullopt, "");
-  }
+  ENVOY_STREAM_LOG(info, "Accepting reverse connection", *decoder_callbacks_);
+  ret.set_status(
+      envoy::extensions::filters::http::reverse_conn::v3alpha::ReverseConnHandshakeRet::ACCEPTED);
+  ENVOY_STREAM_LOG(info, "return value", *decoder_callbacks_, ret.SerializeAsString());
+  decoder_callbacks_->sendLocalReply(Http::Code::OK, ret.SerializeAsString(), nullptr,
+                                     absl::nullopt, "");
+  
   connection->setSocketReused(true);
   connection->close(Network::ConnectionCloseType::NoFlush, "accepted_reverse_conn");
   saveDownstreamConnection(*connection, node_uuid, cluster_uuid);
@@ -168,6 +150,16 @@ Http::FilterHeadersStatus ReverseConnFilter::getReverseConnectionInfo() {
       info,
       "Received reverse connection info request with role: {}, remote node: {}, remote cluster: {}",
       role, remote_node, remote_cluster);
+  
+  auto* socket_manager = getUpstreamSocketManager();
+  if (!socket_manager) {
+    ENVOY_LOG(error, "Failed to get upstream socket manager");
+    decoder_callbacks_->sendLocalReply(Http::Code::InternalServerError,
+                                       "Failed to get socket manager", nullptr,
+                                       absl::nullopt, "");
+    return Http::FilterHeadersStatus::StopIteration;
+  }
+  
   size_t num_sockets = 0;
   bool send_all_rc_info = true;
   // With the local envoy as a responder, the API can be used to get the number
@@ -179,13 +171,13 @@ Http::FilterHeadersStatus ReverseConnFilter::getReverseConnectionInfo() {
           debug,
           "Getting number of reverse connections for remote node:{} with local envoy role: {}",
           remote_node, role);
-      num_sockets = reverseConnectionHandler().getNumberOfSocketsByNode(remote_node);
+      num_sockets = socket_manager->getNumberOfSocketsByNode(remote_node);
     } else {
       ENVOY_LOG(
           debug,
           "Getting number of reverse connections for remote cluster: {} with local envoy role: {}",
           remote_cluster, role);
-      num_sockets = reverseConnectionHandler().getNumberOfSocketsByCluster(remote_cluster);
+      num_sockets = socket_manager->getNumberOfSocketsByCluster(remote_cluster);
     }
   }
 
@@ -197,7 +189,7 @@ Http::FilterHeadersStatus ReverseConnFilter::getReverseConnectionInfo() {
         debug,
         "Getting number of reverse connections for remote cluster:{} with local envoy role: {}",
         remote_node, role);
-    num_sockets = reverseConnectionManager().getNumberOfSockets(remote_cluster);
+    num_sockets = socket_manager->getNumberOfSocketsByCluster(remote_cluster);
   }
   // Send the reverse connection count filtered by node or cluster ID.
   if (!send_all_rc_info) {
@@ -219,7 +211,8 @@ Http::FilterHeadersStatus ReverseConnFilter::getReverseConnectionInfo() {
   // Obtain the list of all remote nodes from which reverse
   // connections have been accepted by the local envoy acting as responder.
   std::list<std::string> accepted_rc_nodes;
-  for (auto const& node : reverseConnectionHandler().getSocketCountMap()) {
+  auto node_stats = socket_manager->getConnectionStats();
+  for (auto const& node : node_stats) {
     auto node_id = node.first;
     size_t rc_conn_count = node.second;
     if (rc_conn_count > 0) {
@@ -229,7 +222,8 @@ Http::FilterHeadersStatus ReverseConnFilter::getReverseConnectionInfo() {
   // Obtain the list of all remote clusters with which reverse
   // connections have been established with the local envoy acting as initiator.
   std::list<std::string> connected_rc_clusters;
-  for (auto const& cluster : reverseConnectionManager().getSocketCountMap()) {
+  auto cluster_stats = socket_manager->getSocketCountMap();
+  for (auto const& cluster : cluster_stats) {
     auto cluster_id = cluster.first;
     size_t rc_conn_count = cluster.second;
     if (rc_conn_count > 0) {
@@ -263,20 +257,8 @@ Http::FilterHeadersStatus ReverseConnFilter::decodeHeaders(Http::RequestHeaderMa
 
   const absl::string_view method = request_headers.Method()->value().getStringView();
   if (method == Http::Headers::get().MethodValues.Post) {
-    if (getQueryParam("accept") == "true") {
-      ENVOY_STREAM_LOG(info, "Accepting a reverse connection request that expects a proxy protocol",
-                       *decoder_callbacks_);
-      is_accept_request_ = true;
-      expects_proxy_protocol_ = true;
-      Http::FilterDataStatus ret_status = acceptReverseConnection();
-      if (ret_status == Http::FilterDataStatus::StopIterationNoBuffer) {
-        return Http::FilterHeadersStatus::StopIteration;
-      }
-      return Http::FilterHeadersStatus::Continue;
-    } else {
-      is_accept_request_ =
-          matchRequestPath(request_path, ReverseConnFilter::reverse_connections_request_path);
-    }
+    is_accept_request_ =
+        matchRequestPath(request_path, ReverseConnFilter::reverse_connections_request_path);
     if (is_accept_request_) {
       absl::string_view length =
           request_headers_->get(Http::Headers::get().ContentLength)[0]->value().getStringView();
@@ -302,17 +284,25 @@ bool ReverseConnFilter::matchRequestPath(const absl::string_view& request_path,
 void ReverseConnFilter::saveDownstreamConnection(Network::Connection& downstream_connection,
                                                  const std::string& node_id,
                                                  const std::string& cluster_id) {
-  ENVOY_STREAM_LOG(debug, "Adding downstream connection socket to connection socket pool",
+  ENVOY_STREAM_LOG(debug, "Adding downstream connection socket to upstream socket manager",
                    *decoder_callbacks_);
+  
+  auto* socket_manager = getUpstreamSocketManager();
+  if (!socket_manager) {
+    ENVOY_STREAM_LOG(error, "Failed to get upstream socket manager", *decoder_callbacks_);
+    return;
+  }
+  
   Network::ConnectionSocketPtr downstream_socket = downstream_connection.moveSocket();
   downstream_socket->ioHandle().resetFileEvents();
-  reverseConnectionHandler().addConnectionSocket(node_id, cluster_id, std::move(downstream_socket),
-                                                 expects_proxy_protocol_, config_->pingInterval(),
-                                                 false /* rebalanced */);
+  
+  socket_manager->addConnectionSocket(node_id, cluster_id, std::move(downstream_socket),
+                                     config_->pingInterval(),
+                                     false /* rebalanced */);
 }
 
 Http::FilterDataStatus ReverseConnFilter::decodeData(Buffer::Instance& data, bool) {
-  if (is_accept_request_ && !expects_proxy_protocol_) {
+  if (is_accept_request_) {
     accept_rev_conn_proto_.move(data);
     if (accept_rev_conn_proto_.length() < expected_proto_size_) {
       ENVOY_STREAM_LOG(debug,
