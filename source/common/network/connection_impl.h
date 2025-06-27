@@ -183,7 +183,7 @@ protected:
 
   // Cleans up the connection resources without closing the socket.
   // Used when transferring socket ownership for reverse connections.
-  void cleanUpConnectionImpl();
+  // void cleanUpConnectionImpl();
 
   // Network::ConnectionImplBase
   void closeConnectionImmediately() final;

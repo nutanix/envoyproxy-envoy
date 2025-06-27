@@ -302,26 +302,27 @@ ConnectionSocketPtr ConnectionImpl::moveSocket() {
   return std::move(socket_);
 }
 
-void ConnectionImpl::cleanUpConnectionImpl() {
-  // No need for a delayed close now.
-  if (delayed_close_timer_) {
-    delayed_close_timer_->disableTimer();
-    delayed_close_timer_ = nullptr;
-  }
+// void ConnectionImpl::cleanUpConnectionImpl() {
+//   // No need for a delayed close now.
+//   if (delayed_close_timer_) {
+//     delayed_close_timer_->disableTimer();
+//     delayed_close_timer_ = nullptr;
+//   }
 
-  // Drain input and output buffers.
-  updateReadBufferStats(0, 0);
-  updateWriteBufferStats(0, 0);
+//   // Drain input and output buffers.
+//   updateReadBufferStats(0, 0);
+//   updateWriteBufferStats(0, 0);
 
-  // Drain any remaining data from write buffer.
-  write_buffer_->drain(write_buffer_->length());
+//   // Drain any remaining data from write buffer.
+//   write_buffer_->drain(write_buffer_->length());
 
-  // Reset connection stats.
-  connection_stats_.reset();
+//   // Reset connection stats.
+//   connection_stats_.reset();
 
-  // Notify listeners that the connection is closing but don't close the actual socket.
-  ConnectionImpl::raiseEvent(ConnectionEvent::LocalClose);
-}
+//   // Notify listeners that the connection is closing but don't close the actual socket.
+//   ConnectionImpl::raiseEvent(ConnectionEvent::LocalClose);
+// }
+
 void ConnectionImpl::closeThroughFilterManager(ConnectionCloseAction close_action) {
   if (!socket_->isOpen()) {
     return;

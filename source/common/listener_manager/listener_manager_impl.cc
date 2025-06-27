@@ -288,26 +288,8 @@ absl::StatusOr<Network::SocketSharedPtr> ProdListenerComponentFactory::createLis
     const Network::SocketCreationOptions& creation_options, uint32_t worker_index) {
   ASSERT(socket_type == Network::Socket::Type::Stream ||
          socket_type == Network::Socket::Type::Datagram);
-  std::string addr_str = address->asString();
-  // Check if this is a reverse connection address by URL scheme
-  if (absl::StartsWith(addr_str, "rc://")) {
-    // Try to get a registered reverse connection socket interface
-    ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
-    auto* socket_interface = Network::socketInterface("envoy.bootstrap.reverse_connection.downstream_reverse_connection_socket_interface");
-    if (socket_interface) {
-      ENVOY_LOG(debug, "Creating reverse connection socket for address: {}", addr_str);
-      auto io_handle = socket_interface->socket(socket_type, address, creation_options);
-      if (!io_handle) {
-        return absl::InvalidArgumentError("Failed to create reverse connection socket");
-      }
-      return std::make_shared<Network::TcpListenSocket>(std::move(io_handle), address, options);
-    } else {
-      ENVOY_LOG(warn, "Reverse connection address detected but socket interface not registered: {}", addr_str);
-      return absl::InvalidArgumentError("Reverse connection socket interface not available");
-    }
-  }
-  
-  // Also check logicalName() for reverse connection addresses
+
+  // Check logicalName() for reverse connection addresses
   std::string logical_name = address->logicalName();
   if (absl::StartsWith(logical_name, "rc://")) {
     // Try to get a registered reverse connection socket interface
