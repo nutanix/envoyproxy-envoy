@@ -33,6 +33,8 @@ CONTRIB_EXTENSIONS = {
     #
     # Reverse Connection
     #
+    "envoy.bootstrap.reverse_connection.downstream_reverse_connection_socket_interface": "//contrib/reverse_connection/bootstrap/source:downstream_reverse_socket_interface_lib",
+    "envoy.bootstrap.reverse_connection.upstream_reverse_connection_socket_interface": "//contrib/reverse_connection/bootstrap/source:upstream_reverse_socket_interface_lib",
     "envoy.filters.listener.reverse_connection":                "//contrib/reverse_connection/filters/listener/source:config",
     "envoy.clusters.reverse_connection": "//contrib/reverse_connection/clusters/source:reverse_connection_lib",
 
