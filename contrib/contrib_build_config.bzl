@@ -34,6 +34,7 @@ CONTRIB_EXTENSIONS = {
     # Reverse Connection
     #
     "envoy.filters.listener.reverse_connection":                "//contrib/reverse_connection/filters/listener/source:config",
+    "envoy.clusters.reverse_connection": "//contrib/reverse_connection/clusters/source:reverse_connection_lib",
 
     #
     # Sip proxy
