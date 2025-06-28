@@ -153,6 +153,12 @@ TEST_F(QuicFilterManagerConnectionImplTest, setSocketReused) {
 
 TEST_F(QuicFilterManagerConnectionImplTest, isSocketReused) {
   EXPECT_EQ(impl_.isSocketReused(), false);
+TEST_F(QuicFilterManagerConnectionImplTest, SetSocketOption) {
+  Network::SocketOptionName sockopt_name;
+  int val = 1;
+  absl::Span<uint8_t> sockopt_val(reinterpret_cast<uint8_t*>(&val), sizeof(val));
+
+  EXPECT_FALSE(impl_.setSocketOption(sockopt_name, sockopt_val));
 }
 
 } // namespace Quic

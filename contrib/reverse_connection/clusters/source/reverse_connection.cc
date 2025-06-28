@@ -81,7 +81,7 @@ Upstream::HostSelectionResponse RevConCluster::checkAndCreateHost(const std::str
       std::move(host_address), nullptr /* endpoint_metadata */, nullptr /* locality_metadata */, 
       1 /* initial_weight */, envoy::config::core::v3::Locality().default_instance(),
       envoy::config::endpoint::v3::Endpoint::HealthCheckConfig().default_instance(),
-      0 /* priority */, envoy::config::core::v3::UNKNOWN, time_source_);
+      0 /* priority */, envoy::config::core::v3::UNKNOWN);
   
   if (!host_result.ok()) {
     ENVOY_LOG(error, "Failed to create HostImpl for {}: {}", host_id, host_result.status().ToString());

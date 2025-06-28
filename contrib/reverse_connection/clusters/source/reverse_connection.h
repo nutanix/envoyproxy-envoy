@@ -79,6 +79,8 @@ public:
     return *Network::socketInterface("envoy.extensions.network.socket_interface.default_socket_interface");
   }
 
+  absl::optional<std::string> networkNamespace() const override { return absl::nullopt; }
+
 private:
   // Simple IPv4 implementation for upstream reverse connection addresses
   struct UpstreamReverseConnectionIp : public Network::Address::Ip {

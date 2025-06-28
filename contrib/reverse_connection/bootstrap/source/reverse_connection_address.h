@@ -44,6 +44,7 @@ public:
   socklen_t sockAddrLen() const override;
   absl::string_view addressType() const override { return "reverse_connection"; }
   const Network::SocketInterface& socketInterface() const override { return Network::SocketInterfaceSingleton::get(); }
+  absl::optional<std::string> networkNamespace() const override { return absl::nullopt; }
 
   // Accessor for reverse connection config
   const ReverseConnectionConfig& reverseConnectionConfig() const { return config_; }
